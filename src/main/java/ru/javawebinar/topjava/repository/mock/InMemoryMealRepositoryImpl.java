@@ -1,46 +1,99 @@
 package ru.javawebinar.topjava.repository.mock;
 
-import ru.javawebinar.topjava.model.Meal;
-import ru.javawebinar.topjava.repository.MealRepository;
-import ru.javawebinar.topjava.util.MealsUtil;
+import org.springframework.stereotype.Repository;
+import ru.javawebinar.topjava.model.UserMeal;
+import ru.javawebinar.topjava.repository.UserMealRepository;
+import ru.javawebinar.topjava.util.DateTimeUtil;
 
+import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
-public class InMemoryMealRepositoryImpl implements MealRepository {
-    private Map<Integer, Meal> repository = new ConcurrentHashMap<>();
+import static ru.javawebinar.topjava.repository.mock.InMemoryUserRepositoryImpl.ADMIN_ID;
+import static ru.javawebinar.topjava.repository.mock.InMemoryUserRepositoryImpl.USER_ID;
+@Repository
+public class InMemoryMealRepositoryImpl implements UserMealRepository {
+    public static final Comparator<UserMeal> USER_MEAL_COMPARATOR = (um1, um2) -> um2.getDateTime().compareTo(um1.getDateTime());
+    private Map<Integer, Map<Integer, UserMeal>> repository = new ConcurrentHashMap<>();
     private AtomicInteger counter = new AtomicInteger(0);
 
     {
-        MealsUtil.MEALS.forEach(this::save);
+        save(new UserMeal(LocalDateTime.of(2018, Month.MAY, 30, 10, 0), "Завтрак", 500), USER_ID);
+        save(new UserMeal(LocalDateTime.of(2018, Month.MAY, 30, 13, 0), "Обед", 1000), USER_ID);
+        save(new UserMeal(LocalDateTime.of(2018, Month.MAY, 30, 20, 0), "Ужин", 500), USER_ID);
+        save(new UserMeal(LocalDateTime.of(2018, Month.MAY, 31, 10, 0), "Завтрак", 1000), USER_ID);
+        save(new UserMeal(LocalDateTime.of(2018, Month.MAY, 31, 13, 0), "Обед", 500), USER_ID);
+        save(new UserMeal(LocalDateTime.of(2018, Month.MAY, 31, 20, 0), "Ужин", 510), USER_ID);
+
+        save(new UserMeal(LocalDateTime.of(2018, Month.JUNE, 1, 12, 0), "Обед Админа", 510), ADMIN_ID);
+        save(new UserMeal(LocalDateTime.of(2018, Month.JUNE, 1, 22, 0), "Ужин Админа", 510), ADMIN_ID);
     }
 
     @Override
-    public Meal save(Meal meal) {
-        if (meal.isNew()) {
-            meal.setId(counter.incrementAndGet());
-            repository.put(meal.getId(), meal);
-            return meal;
+    public UserMeal save(UserMeal userMeal, int userId) {
+        Integer mealId = userMeal.getId();
+
+        if (userMeal.isNew()) {
+            mealId = counter.incrementAndGet();
+            userMeal.setId(mealId);
+        } else if (get(mealId, userId) == null) {
+            return null;
         }
-        // treat case: update, but absent in storage
-        return repository.computeIfPresent(meal.getId(), (id, oldMeal) -> meal);
+        Map<Integer, UserMeal> userMeals = repository.computeIfAbsent(userId, ConcurrentHashMap::new);
+        userMeals.put(mealId, userMeal);
+        return userMeal;
+    }
+
+    @Override
+    public boolean delete(int id, int userId) {
+        Map<Integer, UserMeal> userMeals = repository.get(userId);
+        return userMeals != null && userMeals.remove(id) != null;
+    }
+
+    @Override
+    public UserMeal get(int id, int userId) {
+        Map<Integer, UserMeal> userMeals = repository.get(userId);
+        return userMeals == null ? null : userMeals.get(id);
+    }
+
+    @Override
+    public Collection<UserMeal> getAll(int userId) {
+        return repository.get(userId).values().stream().sorted(USER_MEAL_COMPARATOR).collect(Collectors.toList());
+    }
+
+    @Override
+    public Collection<UserMeal> getBetween(LocalDateTime startDateTime, LocalDateTime endDataTime, int userId) {
+        return getAll(userId).stream()
+                .filter(um -> DateTimeUtil.isBetween(um.getDateTime(), startDateTime, endDataTime))
+                .sorted(USER_MEAL_COMPARATOR)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void save(UserMeal meal) {
+
     }
 
     @Override
     public void delete(int id) {
-        repository.remove(id);
+
     }
 
     @Override
-    public Meal get(int id) {
-        return repository.get(id);
+    public UserMeal get(int id) {
+        return null;
     }
 
     @Override
-    public Collection<Meal> getAll() {
-        return repository.values();
+    public Collection<UserMeal> getAll() {
+        return null;
     }
+
+
 }
 

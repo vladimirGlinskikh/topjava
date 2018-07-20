@@ -42,12 +42,12 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> getAll() {
-        return repository.getAll();
+    public void update(User user) {
+        checkNotFoundWithId(repository.save(user), user.getId());
     }
 
     @Override
-    public void update(User user) {
-        checkNotFoundWithId(repository.save(user), user.getId());
+    public List<User> getAll() {
+        return null;
     }
 }
